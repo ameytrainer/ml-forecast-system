@@ -267,7 +267,7 @@ jobs:
           dvc remote modify origin --local password $DAGSHUB_TOKEN
       
       - name: 📥 Download trained model
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: trained-model
           path: models/trained/
