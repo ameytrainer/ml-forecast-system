@@ -84,7 +84,7 @@ jobs:
         env:
           DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
         run: |
-          dvc remote add origin https://dagshub.com/${{ env.DAGSHUB_USERNAME }}/${{ env.DAGSHUB_REPO }}.dvc
+          dvc remote add origin https://dagshub.com/${{ env.DAGSHUB_USERNAME }}/${{ env.DAGSHUB_REPO }}.dvc --force
           dvc remote modify origin --local auth basic
           dvc remote modify origin --local user ${{ env.DAGSHUB_USERNAME }}
           dvc remote modify origin --local password $DAGSHUB_TOKEN
@@ -154,7 +154,7 @@ jobs:
         env:
           DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
         run: |
-          dvc remote add origin https://dagshub.com/${{ env.DAGSHUB_USERNAME }}/${{ env.DAGSHUB_REPO }}.dvc
+          dvc remote add origin https://dagshub.com/${{ env.DAGSHUB_USERNAME }}/${{ env.DAGSHUB_REPO }}.dvc --force
           dvc remote modify origin --local auth basic
           dvc remote modify origin --local user ${{ env.DAGSHUB_USERNAME }}
           dvc remote modify origin --local password $DAGSHUB_TOKEN
@@ -261,7 +261,7 @@ jobs:
         env:
           DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
         run: |
-          dvc remote add origin https://dagshub.com/${{ env.DAGSHUB_USERNAME }}/${{ env.DAGSHUB_REPO }}.dvc
+          dvc remote add origin https://dagshub.com/${{ env.DAGSHUB_USERNAME }}/${{ env.DAGSHUB_REPO }}.dvc --force
           dvc remote modify origin --local auth basic
           dvc remote modify origin --local user ${{ env.DAGSHUB_USERNAME }}
           dvc remote modify origin --local password $DAGSHUB_TOKEN
