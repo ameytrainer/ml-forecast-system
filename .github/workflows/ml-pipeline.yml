@@ -212,14 +212,14 @@ jobs:
           echo "model_version=$VERSION" >> $GITHUB_OUTPUT
       
       - name: 📤 Upload trained model
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: trained-model
           path: models/trained/
           retention-days: 7
       
       - name: 📤 Upload metrics
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: metrics
           path: metrics/
