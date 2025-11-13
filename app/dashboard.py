@@ -1,6 +1,6 @@
 """
 Streamlit Dashboard for Sales Forecaster
-Interactive UI with Real-Time Metrics from MLflow
+Interactive UI with Real-Time Metrics & Auto-Refresh
 """
 
 import streamlit as st
@@ -39,9 +39,9 @@ st.markdown("""
         padding: 10px;
         margin: 10px 0;
     }
-    .warning-box {
-        background-color: #fff3cd;
-        border-left: 5px solid #ffc107;
+    .info-box {
+        background-color: #d1ecf1;
+        border-left: 5px solid #0c5460;
         padding: 10px;
         margin: 10px 0;
     }
@@ -61,7 +61,7 @@ with st.sidebar:
     st.markdown("---")
     
     # API connection status
-    st.subheader("API Status")
+    st.subheader("🔌 API Status")
     try:
         response = requests.get(f"{API_URL}/health", timeout=2)
         if response.status_code == 200:
@@ -78,27 +78,70 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Refresh settings
-    st.subheader("Dashboard Settings")
-    auto_refresh = st.checkbox("Auto-refresh", value=False)
+    # Auto-reload status
+    st.subheader("🔄 Auto-Reload Status")
+    try:
+        response = requests.get(f"{API_URL}/", timeout=2)
+        if response.status_code == 200:
+            info = response.json()
+            auto_reload = info.get("auto_reload_enabled", False)
+            reload_interval = info.get("auto_reload_interval", "N/A")
+            
+            if auto_reload:
+                st.success(f"✅ Backend Auto-Reload: ON")
+                st.info(f"⏱️ Check Interval: {reload_interval}")
+            else:
+                st.warning("⚠️ Backend Auto-Reload: OFF")
+    except:
+        st.info("Backend status unavailable")
+    
+    st.markdown("---")
+    
+    # Dashboard refresh settings
+    st.subheader("🔄 Dashboard Settings")
+    auto_refresh = st.checkbox("Auto-refresh Dashboard", value=True)
     if auto_refresh:
-        refresh_interval = st.slider("Refresh interval (seconds)", 5, 60, 30)
-        st.info(f"Refreshing every {refresh_interval}s")
+        refresh_interval = st.slider("Refresh interval (seconds)", 10, 120, 30)
+        st.info(f"🔄 Refreshing every {refresh_interval}s")
+        st.caption("Dashboard will automatically show new models when deployed")
+    else:
+        st.warning("Manual refresh only")
+        refresh_interval = None
+    
+    st.markdown("---")
+    
+    # Manual controls
+    st.subheader("🎛️ Manual Controls")
+    
+    if st.button("🔄 Refresh Dashboard", use_container_width=True):
+        st.rerun()
+    
+    if st.button("♻️ Reload Backend Model", use_container_width=True):
+        try:
+            response = requests.get(f"{API_URL}/model/reload", timeout=5)
+            if response.status_code == 200:
+                st.success("✅ Model reloaded!")
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.error("❌ Reload failed")
+        except:
+            st.error("❌ Cannot connect to backend")
     
     st.markdown("---")
     
     # About
-    st.subheader("About")
+    st.subheader("ℹ️ About")
     st.markdown("""
     **Sales Forecaster v4.0**
     
-    Production ML system with:
-    - MLflow Model Registry
-    - DVC data versioning
-    - CI/CD automation
-    - Real-time metrics
+    ✅ MLflow Model Registry  
+    ✅ Auto-reload (30s)  
+    ✅ DVC versioning  
+    ✅ CI/CD automation  
+    ✅ Real-time metrics  
     
-    Built for MLOps Course
+    **Fully Automated MLOps!**
     """)
 
 # Main dashboard
@@ -115,12 +158,15 @@ try:
         model_info = response.json()
         model_version_display = model_info.get("model_version", "Unknown")
         model_source = model_info.get("metadata", {}).get("source", "Unknown")
+        auto_reload_info = model_info.get("auto_reload", {})
     else:
         model_version_display = "Error"
         model_source = "Unknown"
+        auto_reload_info = {}
 except:
     model_version_display = "N/A"
     model_source = "Unknown"
+    auto_reload_info = {}
 
 with col1:
     st.metric("Model Version", model_version_display)
@@ -128,14 +174,29 @@ with col1:
 with col2:
     if "Registry" in model_source:
         st.metric("Status", "🟢 Active")
-    else:
+    elif "Local" in model_source:
         st.metric("Status", "🟡 Local")
+    else:
+        st.metric("Status", "⚪ Unknown")
 
 with col3:
-    st.metric("Uptime", "99.9%")
+    if auto_reload_info.get("enabled"):
+        st.metric("Auto-Reload", "✅ ON")
+    else:
+        st.metric("Auto-Reload", "⚠️ OFF")
 
 with col4:
     st.metric("Predictions/day", "~1,250")
+
+# Show auto-reload status banner
+if auto_reload_info.get("enabled"):
+    st.markdown("""
+    <div class="info-box">
+        <strong>🔄 Fully Automated Pipeline Active</strong><br>
+        Backend checks for new models every 30s • Dashboard refreshes every 30s<br>
+        <em>New models will appear automatically!</em>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -198,7 +259,7 @@ with col1:
                 "MAE (Mean Absolute Error)", 
                 f"{mae_value:.2f}",
                 delta=f"{mae_delta:+.1f}%",
-                delta_color="inverse",  # For MAE, lower is better, so inverse
+                delta_color="inverse",  # For MAE, lower is better
                 help="Lower is better. Average prediction error in dollars."
             )
         else:
@@ -263,7 +324,7 @@ with col3:
 
 # Show comparison details in expander
 if mae_delta is not None:
-    with st.expander("📊 View Detailed Comparison"):
+    with st.expander("📊 View Detailed Version Comparison"):
         try:
             comparison_response = requests.get(f"{API_URL}/model/compare", timeout=5)
             if comparison_response.status_code == 200:
@@ -276,12 +337,12 @@ if mae_delta is not None:
                 
                 comparison_df = pd.DataFrame({
                     'Metric': ['MAE', 'RMSE', 'R² Score'],
-                    'Current (v{})'.format(current.get("version", "?")): [
+                    f'Current (v{current.get("version", "?")})': [
                         f"{current.get('metrics', {}).get('mae', 0):.2f}",
                         f"{current.get('metrics', {}).get('rmse', 0):.2f}",
                         f"{current.get('metrics', {}).get('r2_score', 0):.3f}"
                     ],
-                    'Previous (v{})'.format(previous.get("version", "?")): [
+                    f'Previous (v{previous.get("version", "?")})': [
                         f"{previous.get('metrics', {}).get('mae', 0):.2f}",
                         f"{previous.get('metrics', {}).get('rmse', 0):.2f}",
                         f"{previous.get('metrics', {}).get('r2_score', 0):.3f}"
@@ -294,6 +355,34 @@ if mae_delta is not None:
                 })
                 
                 st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+                
+                # Show improvement status
+                improvements = comparison.get("improvement", {})
+                col_a, col_b, col_c = st.columns(3)
+                
+                with col_a:
+                    if improvements.get("mae") == "improved":
+                        st.success("✅ MAE Improved")
+                    elif improvements.get("mae") == "degraded":
+                        st.error("❌ MAE Degraded")
+                    else:
+                        st.info("➖ MAE Unchanged")
+                
+                with col_b:
+                    if improvements.get("rmse") == "improved":
+                        st.success("✅ RMSE Improved")
+                    elif improvements.get("rmse") == "degraded":
+                        st.error("❌ RMSE Degraded")
+                    else:
+                        st.info("➖ RMSE Unchanged")
+                
+                with col_c:
+                    if improvements.get("r2") == "improved":
+                        st.success("✅ R² Improved")
+                    elif improvements.get("r2") == "degraded":
+                        st.error("❌ R² Degraded")
+                    else:
+                        st.info("➖ R² Unchanged")
         except:
             st.info("Comparison data not available")
 
@@ -498,14 +587,15 @@ st.dataframe(recent_predictions, use_container_width=True, hide_index=True)
 
 # Footer
 st.markdown("---")
-st.markdown("""
+st.markdown(f"""
 <div style='text-align: center; color: #666; padding: 20px;'>
     <p><b>Sales Forecaster Dashboard v4.0</b> | Powered by Streamlit, FastAPI & MLflow</p>
-    <p>MLOps with Agentic AI - Advanced Certification Course</p>
+    <p>Fully Automated MLOps with CI/CD</p>
+    <p style='font-size: 0.9em;'>Last refresh: {datetime.now().strftime("%H:%M:%S")}</p>
 </div>
 """, unsafe_allow_html=True)
 
 # Auto-refresh logic
-if auto_refresh:
+if auto_refresh and refresh_interval:
     time.sleep(refresh_interval)
     st.rerun()

@@ -1,6 +1,7 @@
 """
 FastAPI Backend for Sales Forecaster
 Production ML API with MLflow Model Registry Integration
+Features: Auto-reload, Real Metrics, Model Comparison
 """
 
 from fastapi import FastAPI, HTTPException
@@ -16,6 +17,9 @@ import logging
 from datetime import datetime
 import os
 from dotenv import load_dotenv
+import asyncio
+from threading import Thread
+import time
 
 # Load environment variables
 load_dotenv()
@@ -30,7 +34,7 @@ logger = logging.getLogger(__name__)
 # FastAPI app
 app = FastAPI(
     title="Sales Forecaster API",
-    description="Production ML API with MLflow Registry",
+    description="Production ML API with MLflow Registry & Auto-Reload",
     version="4.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -49,6 +53,10 @@ app.add_middleware(
 model = None
 model_version = None
 model_metadata = {}
+
+# Auto-reload configuration
+AUTO_RELOAD_ENABLED = os.getenv("AUTO_RELOAD_MODEL", "true").lower() == "true"
+AUTO_RELOAD_INTERVAL = int(os.getenv("AUTO_RELOAD_INTERVAL", "30"))
 
 
 class PredictionRequest(BaseModel):
@@ -74,6 +82,73 @@ class HealthResponse(BaseModel):
     model_loaded: bool
     model_version: str
     timestamp: str
+
+
+def check_for_new_model():
+    """
+    Background task to check for new model versions in MLflow Registry
+    Runs in a separate thread and auto-reloads model when new version is detected
+    """
+    global model, model_version, model_metadata
+    
+    logger.info(f"🔄 Auto-reload enabled: checking every {AUTO_RELOAD_INTERVAL}s")
+    
+    while AUTO_RELOAD_ENABLED:
+        time.sleep(AUTO_RELOAD_INTERVAL)
+        
+        try:
+            # Skip if not using MLflow Registry
+            mlflow_uri = os.getenv("MLFLOW_TRACKING_URI")
+            if not mlflow_uri or not mlflow_uri.startswith("http"):
+                continue
+            
+            # Skip if model not loaded yet
+            if not model_metadata.get("version"):
+                continue
+            
+            client = MlflowClient()
+            model_name = "sales-forecaster"
+            
+            # Get current Production version from registry
+            prod_versions = client.get_latest_versions(model_name, stages=["Production"])
+            
+            if not prod_versions:
+                continue
+            
+            latest_version = prod_versions[0]
+            current_version = model_metadata.get("version")
+            
+            # Check if version changed
+            if str(latest_version.version) != str(current_version):
+                logger.info(f"🆕 New model version detected!")
+                logger.info(f"   Current: v{current_version}")
+                logger.info(f"   Latest: v{latest_version.version}")
+                logger.info(f"🔄 Auto-reloading model...")
+                
+                # Reload model
+                try:
+                    model_uri = f"models:/{model_name}/Production"
+                    new_model = mlflow.pyfunc.load_model(model_uri)
+                    
+                    # Update globals atomically
+                    model = new_model
+                    model_version = f"v{latest_version.version}"
+                    model_metadata = {
+                        "version": latest_version.version,
+                        "run_id": latest_version.run_id,
+                        "stage": latest_version.current_stage,
+                        "created_at": latest_version.creation_timestamp,
+                        "source": "DagsHub MLflow Registry"
+                    }
+                    
+                    logger.info(f"✅ Model auto-reloaded to version {model_version}!")
+                    logger.info(f"   Run ID: {latest_version.run_id}")
+                    
+                except Exception as e:
+                    logger.error(f"❌ Failed to reload model: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Error in auto-reload check: {e}")
 
 
 @app.on_event("startup")
@@ -134,6 +209,12 @@ async def load_model():
         logger.info("Loading from local file...")
         load_local_model()
     
+    # Start auto-reload thread if model loaded successfully and auto-reload enabled
+    if model and AUTO_RELOAD_ENABLED and mlflow_uri:
+        reload_thread = Thread(target=check_for_new_model, daemon=True)
+        reload_thread.start()
+        logger.info(f"✅ Auto-reload thread started (checking every {AUTO_RELOAD_INTERVAL}s)")
+    
     if model:
         logger.info("✅ Sales Forecaster API ready!")
     else:
@@ -165,6 +246,8 @@ async def root():
         "status": "healthy" if model else "model_not_loaded",
         "model_version": model_version,
         "model_source": model_metadata.get("source", "unknown"),
+        "auto_reload_enabled": AUTO_RELOAD_ENABLED,
+        "auto_reload_interval": f"{AUTO_RELOAD_INTERVAL}s" if AUTO_RELOAD_ENABLED else "disabled",
         "endpoints": {
             "health": "/health",
             "predict": "/predict",
@@ -224,7 +307,7 @@ async def predict(request: PredictionRequest):
         # Calculate confidence (simplified for demo)
         confidence = 0.85 if 80 < prediction < 200 else 0.70
         
-        logger.info(f"Prediction: {prediction:.2f} (confidence: {confidence:.2f})")
+        logger.info(f"Prediction: {prediction:.2f} (confidence: {confidence:.2f}) [Model: {model_version}]")
         
         return PredictionResponse(
             prediction=float(prediction),
@@ -284,6 +367,10 @@ async def predict_debug(request: PredictionRequest):
                 "run_id": model_metadata.get("run_id", "unknown"),
                 "stage": model_metadata.get("stage", "unknown"),
                 "loaded_from": "DagsHub MLflow Registry" if "run_id" in model_metadata else "Local File"
+            },
+            "auto_reload": {
+                "enabled": AUTO_RELOAD_ENABLED,
+                "interval_seconds": AUTO_RELOAD_INTERVAL
             }
         }
         
@@ -356,7 +443,12 @@ async def get_model_info():
         "target": "sales",
         "model_type": "RandomForestRegressor",
         "loaded_at": datetime.now().isoformat(),
-        "performance": performance_metrics
+        "performance": performance_metrics,
+        "auto_reload": {
+            "enabled": AUTO_RELOAD_ENABLED,
+            "interval_seconds": AUTO_RELOAD_INTERVAL,
+            "last_check": "monitoring..."
+        }
     }
 
 
@@ -364,7 +456,7 @@ async def get_model_info():
 async def compare_models():
     """
     Compare current Production model with previous version
-    Returns performance deltas
+    Returns performance deltas for metrics display
     """
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
@@ -485,14 +577,15 @@ async def compare_models():
 
 @app.get("/model/reload")
 async def reload_model():
-    """Reload model from registry (for dashboard refresh)"""
-    logger.info("🔄 Reloading model from registry...")
+    """Manually reload model from registry"""
+    logger.info("🔄 Manual reload requested...")
     await load_model()
     
     return {
         "status": "reloaded",
         "model_version": model_version,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "auto_reload_enabled": AUTO_RELOAD_ENABLED
     }
 
 
