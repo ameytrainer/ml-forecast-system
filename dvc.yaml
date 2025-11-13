@@ -1,0 +1,168 @@
+# =============================================================================
+# DVC Pipeline Configuration
+# =============================================================================
+# This file defines the complete ML pipeline with all dependencies
+# DVC uses this to:
+# 1. Track which stage depends on what
+# 2. Detect when to re-run stages (if dependencies change)
+# 3. Create reproducible ML workflows
+#
+# Run pipeline: dvc repro
+# View pipeline: dvc dag
+# =============================================================================
+
+# =============================================================================
+# Stage 1: Data Preprocessing
+# =============================================================================
+stages:
+  preprocess:
+    cmd: python src/preprocess.py
+    deps:
+      - src/preprocess.py           # Python script
+      - data/raw/sales_data.csv     # Input data (tracked by DVC)
+    params:
+      - preprocess.test_size        # From params.yaml
+      - preprocess.random_state
+    outs:
+      - data/processed/train.csv    # Output: training data
+      - data/processed/test.csv     # Output: test data
+    desc: >
+      Preprocesses raw sales data:
+      - Validates data quality
+      - Engineers features
+      - Splits into train/test sets
+      - Saves processed data
+
+  # ===========================================================================
+  # Stage 2: Model Training
+  # ===========================================================================
+  train:
+    cmd: >
+      python src/train.py
+      --data-path data/processed/train.csv
+      --model-output models/trained/
+      --config params.yaml
+    deps:
+      - src/train.py                # Training script
+      - src/utils.py                # Helper functions
+      - data/processed/train.csv    # Training data
+    params:
+      - train.model_type            # From params.yaml
+      - train.n_estimators
+      - train.max_depth
+      - train.min_samples_split
+      - train.random_state
+    outs:
+      - models/trained/model.pkl    # Trained model file
+    metrics:
+      - metrics/train_metrics.json: # Training metrics
+          cache: false              # Don't cache metrics (always fresh)
+    desc: >
+      Trains ML model:
+      - Loads preprocessed training data
+      - Trains RandomForestRegressor
+      - Logs to MLflow (experiments, params, metrics)
+      - Saves trained model
+      - Records training metrics
+
+  # ===========================================================================
+  # Stage 3: Model Evaluation
+  # ===========================================================================
+  evaluate:
+    cmd: >
+      python src/evaluate.py
+      --model-path models/trained/model.pkl
+      --test-data data/processed/test.csv
+      --output-metrics metrics/eval_metrics.json
+    deps:
+      - src/evaluate.py             # Evaluation script
+      - models/trained/model.pkl    # Trained model
+      - data/processed/test.csv     # Test data
+    metrics:
+      - metrics/eval_metrics.json:  # Evaluation metrics
+          cache: false              # Always fresh
+    desc: >
+      Evaluates model performance:
+      - Loads trained model
+      - Tests on held-out test set
+      - Calculates metrics (MAE, RMSE, R²)
+      - Compares with baseline
+      - Makes deployment decision
+
+# =============================================================================
+# Pipeline Visualization
+# =============================================================================
+# Run: dvc dag
+#
+# Expected output:
+#         +-------------+
+#         | sales_data  |
+#         +-------------+
+#                *
+#                *
+#         +-------------+
+#         | preprocess  |
+#         +-------------+
+#           **        **
+#         **            **
+#       **                **
+# +-------+              +-------+
+# | train |              | test  |
+# +-------+              +-------+
+#     *                      *
+#     *                      *
+# +----------+          +----------+
+# | model    |          | evaluate |
+# +----------+          +----------+
+
+# =============================================================================
+# Usage Examples
+# =============================================================================
+# Run entire pipeline:
+#   dvc repro
+#
+# Run specific stage:
+#   dvc repro train
+#
+# View pipeline structure:
+#   dvc dag
+#
+# Show metrics:
+#   dvc metrics show
+#
+# Compare experiments:
+#   dvc metrics diff
+#
+# Force re-run (ignore cache):
+#   dvc repro --force
+#
+# Dry run (show what would run):
+#   dvc repro --dry
+
+# =============================================================================
+# Notes
+# =============================================================================
+# - If params.yaml changes → affected stages re-run automatically
+# - If source code changes → affected stages re-run automatically
+# - If data changes → all downstream stages re-run
+# - DVC caches outputs → fast re-runs when nothing changed
+# - Use 'cache: false' for metrics → always see fresh results
+# - All outputs are tracked by DVC → fully reproducible
+
+# =============================================================================
+# Advanced Configuration (Optional)
+# =============================================================================
+# Uncomment sections below if needed:
+
+# plots:
+#   - metrics/train_metrics.json:
+#       x: epoch
+#       y: loss
+#   - metrics/eval_metrics.json:
+#       template: confusion
+#       x: actual
+#       y: predicted
+
+# vars:
+#   - model_name: sales-forecaster
+#   - experiment_name: production

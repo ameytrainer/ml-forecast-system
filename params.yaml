@@ -1,0 +1,28 @@
+# Hyperparameters and Configuration
+# MLOps with Agentic AI - Session 8
+
+preprocess:
+  test_size: 0.2
+  random_state: 42
+  validation_size: 0.1
+
+train:
+  model_type: RandomForestRegressor
+  n_estimators: 100
+  max_depth: 20
+  min_samples_split: 2
+  min_samples_leaf: 1
+  max_features: auto
+  random_state: 42
+  n_jobs: -1
+
+evaluate:
+  metrics:
+    - mae
+    - rmse
+    - r2_score
+    - mape
+  
+deployment:
+  staging_threshold: 0.1  # Deploy to staging if MAE improves by 10%
+  production_threshold: 0.05  # Deploy to prod if MAE improves by 5%

@@ -1,0 +1,44 @@
+# Python Dependencies
+# MLOps with Agentic AI - Session 8: End-to-End CI/CD for ML
+
+# Core ML Libraries
+pandas==2.0.3
+numpy==1.24.3
+scikit-learn==1.3.0
+joblib==1.3.2
+
+# MLOps Tools
+mlflow==2.8.0
+dvc==3.27.0
+
+# API & Web
+fastapi==0.104.0
+httpx
+uvicorn[standard]==0.24.0
+streamlit==1.28.0
+pydantic==2.4.2
+requests==2.31.0
+
+# Visualization
+matplotlib==3.7.2
+plotly==5.17.0
+
+# Configuration & Utils
+pyyaml==6.0.1
+python-dotenv==1.0.0
+
+# Testing
+pytest==7.4.2
+pytest-cov==4.1.0
+
+# Code Quality
+flake8==6.1.0
+black==23.10.0
+
+# Cloud Storage (optional)
+boto3==1.28.85
+google-cloud-storage==2.10.0
+azure-storage-blob==12.19.0
+
+# Monitoring (optional)
+prometheus-client==0.18.0
