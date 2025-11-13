@@ -1,6 +1,6 @@
 """
 FastAPI Backend for Sales Forecaster
-Loads model from MLflow Model Registry (DagsHub)
+Production ML API with MLflow Model Registry Integration
 """
 
 from fastapi import FastAPI, HTTPException
@@ -11,7 +11,7 @@ import mlflow.pyfunc
 from mlflow.tracking import MlflowClient
 import pandas as pd
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 import logging
 from datetime import datetime
 import os
@@ -21,17 +21,22 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Setup logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # FastAPI app
 app = FastAPI(
     title="Sales Forecaster API",
     description="Production ML API with MLflow Registry",
-    version="4.0.0"
+    version="4.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
-# CORS
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -47,17 +52,27 @@ model_metadata = {}
 
 
 class PredictionRequest(BaseModel):
-    advertising_spend: float = Field(..., ge=0, le=10000)
-    promotions: int = Field(..., ge=0, le=1)
-    day_of_week: int = Field(..., ge=0, le=6)
-    month: int = Field(..., ge=1, le=12)
-    is_weekend: int = Field(..., ge=0, le=1)
+    """Request schema for predictions"""
+    advertising_spend: float = Field(..., ge=0, le=10000, description="Advertising spend in dollars")
+    promotions: int = Field(..., ge=0, le=1, description="Whether promotions are active (0 or 1)")
+    day_of_week: int = Field(..., ge=0, le=6, description="Day of week (0=Monday, 6=Sunday)")
+    month: int = Field(..., ge=1, le=12, description="Month of year (1-12)")
+    is_weekend: int = Field(..., ge=0, le=1, description="Whether it's weekend (0 or 1)")
 
 
 class PredictionResponse(BaseModel):
+    """Response schema for predictions"""
     prediction: float
     model_version: str
     confidence: float
+    timestamp: str
+
+
+class HealthResponse(BaseModel):
+    """Health check response"""
+    status: str
+    model_loaded: bool
+    model_version: str
     timestamp: str
 
 
@@ -143,7 +158,7 @@ def load_local_model():
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
+    """Root endpoint with API information"""
     return {
         "service": "Sales Forecaster API",
         "version": "4.0.0",
@@ -153,30 +168,85 @@ async def root():
         "endpoints": {
             "health": "/health",
             "predict": "/predict",
+            "predict_debug": "/predict/debug",
             "model_info": "/model/info",
+            "model_compare": "/model/compare",
+            "reload": "/model/reload",
             "docs": "/docs"
         },
         "timestamp": datetime.now().isoformat()
     }
 
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 async def health_check():
-    """Health check"""
+    """Health check endpoint for load balancers"""
     if model is None:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+        raise HTTPException(
+            status_code=503,
+            detail="Service unavailable: Model not loaded"
+        )
     
-    return {
-        "status": "healthy",
-        "model_loaded": True,
-        "model_version": model_version,
-        "timestamp": datetime.now().isoformat()
-    }
+    return HealthResponse(
+        status="healthy",
+        model_loaded=True,
+        model_version=model_version,
+        timestamp=datetime.now().isoformat()
+    )
 
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
-    """Make prediction"""
+    """
+    Make sales prediction
+    
+    Returns predicted sales value based on input features.
+    """
+    if model is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Model not loaded. Please contact support."
+        )
+    
+    try:
+        # Prepare input data
+        input_data = pd.DataFrame([{
+            'advertising_spend': request.advertising_spend,
+            'promotions': request.promotions,
+            'day_of_week': request.day_of_week,
+            'month': request.month,
+            'is_weekend': request.is_weekend
+        }])
+        
+        # Make prediction
+        prediction = model.predict(input_data)[0]
+        
+        # Calculate confidence (simplified for demo)
+        confidence = 0.85 if 80 < prediction < 200 else 0.70
+        
+        logger.info(f"Prediction: {prediction:.2f} (confidence: {confidence:.2f})")
+        
+        return PredictionResponse(
+            prediction=float(prediction),
+            model_version=model_version,
+            confidence=confidence,
+            timestamp=datetime.now().isoformat()
+        )
+        
+    except Exception as e:
+        logger.error(f"Prediction error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Prediction failed: {str(e)}"
+        )
+
+
+@app.post("/predict/debug", tags=["Predictions"])
+async def predict_debug(request: PredictionRequest):
+    """
+    Make prediction with detailed debug information
+    Shows which model is being used and full metadata
+    """
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
     
@@ -194,14 +264,28 @@ async def predict(request: PredictionRequest):
         prediction = model.predict(input_data)[0]
         confidence = 0.85 if 80 < prediction < 200 else 0.70
         
-        logger.info(f"Prediction: {prediction:.2f} (confidence: {confidence:.2f})")
+        logger.info(f"DEBUG Prediction: {prediction:.2f} using {model_version}")
         
-        return PredictionResponse(
-            prediction=float(prediction),
-            model_version=model_version,
-            confidence=confidence,
-            timestamp=datetime.now().isoformat()
-        )
+        return {
+            "prediction": float(prediction),
+            "model_version": model_version,
+            "model_source": model_metadata.get("source", "unknown"),
+            "confidence": confidence,
+            "timestamp": datetime.now().isoformat(),
+            "input_features": {
+                "advertising_spend": request.advertising_spend,
+                "promotions": request.promotions,
+                "day_of_week": request.day_of_week,
+                "month": request.month,
+                "is_weekend": request.is_weekend
+            },
+            "model_metadata": {
+                "version": model_metadata.get("version", "unknown"),
+                "run_id": model_metadata.get("run_id", "unknown"),
+                "stage": model_metadata.get("stage", "unknown"),
+                "loaded_from": "DagsHub MLflow Registry" if "run_id" in model_metadata else "Local File"
+            }
+        }
         
     except Exception as e:
         logger.error(f"Prediction error: {e}")
@@ -210,14 +294,58 @@ async def predict(request: PredictionRequest):
 
 @app.get("/model/info")
 async def get_model_info():
-    """Get model information"""
+    """
+    Get comprehensive model information with performance metrics
+    Fetches real metrics from MLflow run
+    """
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    # Try to fetch metrics from MLflow
+    performance_metrics = {}
+    
+    if model_metadata.get("run_id"):
+        try:
+            import mlflow
+            
+            run = mlflow.get_run(model_metadata["run_id"])
+            
+            # Extract metrics from the run
+            metrics = run.data.metrics
+            performance_metrics = {
+                "mae": metrics.get("mae", metrics.get("test_mae", 0)),
+                "rmse": metrics.get("rmse", metrics.get("test_rmse", 0)),
+                "r2_score": metrics.get("r2_score", metrics.get("test_r2", 0)),
+                "mape": metrics.get("mape", metrics.get("test_mape", 0))
+            }
+            
+            logger.info(f"✓ Fetched metrics from MLflow run: {model_metadata['run_id']}")
+            
+        except Exception as e:
+            logger.warning(f"Could not fetch metrics from MLflow: {e}")
+            performance_metrics = {
+                "mae": 0,
+                "rmse": 0,
+                "r2_score": 0,
+                "mape": 0
+            }
+    else:
+        logger.warning("No run_id in metadata, using placeholder metrics")
+        performance_metrics = {
+            "mae": 0,
+            "rmse": 0,
+            "r2_score": 0,
+            "mape": 0
+        }
+    
+    # Add performance to metadata
+    enhanced_metadata = model_metadata.copy()
+    enhanced_metadata["performance"] = performance_metrics
     
     return {
         "model_name": "sales-forecaster",
         "model_version": model_version,
-        "metadata": model_metadata,
+        "metadata": enhanced_metadata,
         "features": [
             "advertising_spend",
             "promotions",
@@ -225,9 +353,134 @@ async def get_model_info():
             "month",
             "is_weekend"
         ],
+        "target": "sales",
         "model_type": "RandomForestRegressor",
-        "loaded_at": datetime.now().isoformat()
+        "loaded_at": datetime.now().isoformat(),
+        "performance": performance_metrics
     }
+
+
+@app.get("/model/compare")
+async def compare_models():
+    """
+    Compare current Production model with previous version
+    Returns performance deltas
+    """
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    try:
+        client = MlflowClient()
+        model_name = "sales-forecaster"
+        
+        # Get all versions
+        all_versions = client.search_model_versions(f"name='{model_name}'")
+        
+        if len(all_versions) < 1:
+            return {
+                "error": "No model versions found",
+                "has_comparison": False
+            }
+        
+        # Sort by version number (descending)
+        sorted_versions = sorted(all_versions, key=lambda x: int(x.version), reverse=True)
+        
+        # Get current production version
+        prod_versions = [v for v in sorted_versions if v.current_stage == "Production"]
+        
+        if not prod_versions:
+            return {
+                "error": "No Production model found",
+                "has_comparison": False
+            }
+        
+        current_version = prod_versions[0]
+        current_run = mlflow.get_run(current_version.run_id)
+        current_metrics = current_run.data.metrics
+        
+        # Try to find previous version (archived or older)
+        previous_version = None
+        for v in sorted_versions:
+            if int(v.version) < int(current_version.version):
+                previous_version = v
+                break
+        
+        if previous_version:
+            previous_run = mlflow.get_run(previous_version.run_id)
+            previous_metrics = previous_run.data.metrics
+            
+            # Calculate deltas
+            current_mae = current_metrics.get("mae", current_metrics.get("test_mae", 0))
+            previous_mae = previous_metrics.get("mae", previous_metrics.get("test_mae", 0))
+            
+            current_rmse = current_metrics.get("rmse", current_metrics.get("test_rmse", 0))
+            previous_rmse = previous_metrics.get("rmse", previous_metrics.get("test_rmse", 0))
+            
+            current_r2 = current_metrics.get("r2_score", current_metrics.get("test_r2", 0))
+            previous_r2 = previous_metrics.get("r2_score", previous_metrics.get("test_r2", 0))
+            
+            # Calculate percentage changes
+            mae_delta = ((previous_mae - current_mae) / previous_mae * 100) if previous_mae > 0 else 0
+            rmse_delta = ((previous_rmse - current_rmse) / previous_rmse * 100) if previous_rmse > 0 else 0
+            r2_delta = ((current_r2 - previous_r2) / previous_r2 * 100) if previous_r2 > 0 else 0
+            
+            return {
+                "has_comparison": True,
+                "current_version": {
+                    "version": current_version.version,
+                    "run_id": current_version.run_id,
+                    "metrics": {
+                        "mae": current_mae,
+                        "rmse": current_rmse,
+                        "r2_score": current_r2
+                    }
+                },
+                "previous_version": {
+                    "version": previous_version.version,
+                    "run_id": previous_version.run_id,
+                    "metrics": {
+                        "mae": previous_mae,
+                        "rmse": previous_rmse,
+                        "r2_score": previous_r2
+                    }
+                },
+                "deltas": {
+                    "mae_percent": round(mae_delta, 2),
+                    "rmse_percent": round(rmse_delta, 2),
+                    "r2_percent": round(r2_delta, 2)
+                },
+                "improvement": {
+                    "mae": "improved" if mae_delta > 0 else "degraded" if mae_delta < 0 else "unchanged",
+                    "rmse": "improved" if rmse_delta > 0 else "degraded" if rmse_delta < 0 else "unchanged",
+                    "r2": "improved" if r2_delta > 0 else "degraded" if r2_delta < 0 else "unchanged"
+                }
+            }
+        else:
+            # No previous version to compare
+            current_mae = current_metrics.get("mae", current_metrics.get("test_mae", 0))
+            current_rmse = current_metrics.get("rmse", current_metrics.get("test_rmse", 0))
+            current_r2 = current_metrics.get("r2_score", current_metrics.get("test_r2", 0))
+            
+            return {
+                "has_comparison": False,
+                "message": "This is the first model version",
+                "current_version": {
+                    "version": current_version.version,
+                    "run_id": current_version.run_id,
+                    "metrics": {
+                        "mae": current_mae,
+                        "rmse": current_rmse,
+                        "r2_score": current_r2
+                    }
+                }
+            }
+            
+    except Exception as e:
+        logger.error(f"Error comparing models: {e}")
+        return {
+            "error": str(e),
+            "has_comparison": False
+        }
 
 
 @app.get("/model/reload")

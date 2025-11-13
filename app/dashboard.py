@@ -1,13 +1,12 @@
 """
 Streamlit Dashboard for Sales Forecaster
-Interactive UI for model predictions and monitoring
+Interactive UI with Real-Time Metrics from MLflow
 """
 
 import streamlit as st
 import requests
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import time
@@ -54,7 +53,7 @@ API_URL = "http://localhost:5000"
 
 # Title and description
 st.markdown('<p class="main-header">📊 Sales Forecasting Dashboard</p>', unsafe_allow_html=True)
-st.markdown("**Production ML System - Real-time Predictions**")
+st.markdown("**Production ML System - Real-time Predictions from MLflow Model Registry**")
 
 # Sidebar
 with st.sidebar:
@@ -83,7 +82,7 @@ with st.sidebar:
     st.subheader("Dashboard Settings")
     auto_refresh = st.checkbox("Auto-refresh", value=False)
     if auto_refresh:
-        refresh_interval = st.slider("Refresh interval (seconds)", 5, 60, 10)
+        refresh_interval = st.slider("Refresh interval (seconds)", 5, 60, 30)
         st.info(f"Refreshing every {refresh_interval}s")
     
     st.markdown("---")
@@ -91,12 +90,13 @@ with st.sidebar:
     # About
     st.subheader("About")
     st.markdown("""
-    **Sales Forecaster v3.0**
+    **Sales Forecaster v4.0**
     
     Production ML system with:
-    - MLflow tracking
-    - DVC versioning
+    - MLflow Model Registry
+    - DVC data versioning
     - CI/CD automation
+    - Real-time metrics
     
     Built for MLOps Course
     """)
@@ -104,13 +104,32 @@ with st.sidebar:
 # Main dashboard
 
 # Model Information Section
+st.subheader("🎯 Model Information")
+
 col1, col2, col3, col4 = st.columns(4)
 
+# Fetch model info
+try:
+    response = requests.get(f"{API_URL}/model/info", timeout=5)
+    if response.status_code == 200:
+        model_info = response.json()
+        model_version_display = model_info.get("model_version", "Unknown")
+        model_source = model_info.get("metadata", {}).get("source", "Unknown")
+    else:
+        model_version_display = "Error"
+        model_source = "Unknown"
+except:
+    model_version_display = "N/A"
+    model_source = "Unknown"
+
 with col1:
-    st.metric("Model Version", model_version)
+    st.metric("Model Version", model_version_display)
 
 with col2:
-    st.metric("Status", "🟢 Active")
+    if "Registry" in model_source:
+        st.metric("Status", "🟢 Active")
+    else:
+        st.metric("Status", "🟡 Local")
 
 with col3:
     st.metric("Uptime", "99.9%")
@@ -120,44 +139,163 @@ with col4:
 
 st.markdown("---")
 
-# Fetch metrics from API
-try:
-    response = requests.get(f"{API_URL}/metrics", timeout=2)
-    metrics = response.json()
-    model_perf = metrics.get("model_performance", {})
-except:
-    model_perf = {"mae": "N/A", "rmse": "N/A", "r2_score": "N/A"}
-
-# Performance Metrics
+# ====================================================================
+# Performance Metrics Section - WITH REAL DELTAS
+# ====================================================================
 st.subheader("📊 Model Performance Metrics")
 
+# Fetch current model metrics
+try:
+    response = requests.get(f"{API_URL}/model/info", timeout=5)
+    if response.status_code == 200:
+        model_info = response.json()
+        performance = model_info.get("performance", {})
+        mae_value = performance.get("mae", 0)
+        rmse_value = performance.get("rmse", 0)
+        r2_value = performance.get("r2_score", 0)
+    else:
+        mae_value = rmse_value = r2_value = 0
+except Exception as e:
+    st.error(f"Could not fetch metrics: {e}")
+    mae_value = rmse_value = r2_value = 0
+
+# Fetch comparison with previous version for REAL deltas
+try:
+    comparison_response = requests.get(f"{API_URL}/model/compare", timeout=5)
+    if comparison_response.status_code == 200:
+        comparison = comparison_response.json()
+        
+        if comparison.get("has_comparison"):
+            # We have a previous version to compare
+            deltas = comparison.get("deltas", {})
+            mae_delta = deltas.get("mae_percent", 0)
+            rmse_delta = deltas.get("rmse_percent", 0)
+            r2_delta = deltas.get("r2_percent", 0)
+            
+            improvements = comparison.get("improvement", {})
+            mae_improved = improvements.get("mae") == "improved"
+            rmse_improved = improvements.get("rmse") == "improved"
+            r2_improved = improvements.get("r2") == "improved"
+        else:
+            # First version, no comparison
+            mae_delta = rmse_delta = r2_delta = None
+            mae_improved = rmse_improved = r2_improved = None
+    else:
+        mae_delta = rmse_delta = r2_delta = None
+        mae_improved = rmse_improved = r2_improved = None
+except:
+    mae_delta = rmse_delta = r2_delta = None
+    mae_improved = rmse_improved = r2_improved = None
+
+# Display metrics in columns with REAL deltas
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    mae_value = model_perf.get('mae', 0)
-    st.metric(
-        "MAE (Mean Absolute Error)", 
-        f"{mae_value:.2f}" if isinstance(mae_value, (int, float)) else "N/A",
-        delta="-9.7%" if isinstance(mae_value, (int, float)) else None,
-        delta_color="inverse"
-    )
+    if mae_value > 0:
+        if mae_delta is not None:
+            # Show real delta
+            st.metric(
+                "MAE (Mean Absolute Error)", 
+                f"{mae_value:.2f}",
+                delta=f"{mae_delta:+.1f}%",
+                delta_color="inverse",  # For MAE, lower is better, so inverse
+                help="Lower is better. Average prediction error in dollars."
+            )
+        else:
+            # First version, no delta
+            st.metric(
+                "MAE (Mean Absolute Error)", 
+                f"{mae_value:.2f}",
+                help="Lower is better. Average prediction error in dollars."
+            )
+    else:
+        st.metric(
+            "MAE (Mean Absolute Error)", 
+            "N/A",
+            help="Train a model to see metrics"
+        )
 
 with col2:
-    rmse_value = model_perf.get('rmse', 0)
-    st.metric(
-        "RMSE (Root Mean Squared Error)", 
-        f"{rmse_value:.2f}" if isinstance(rmse_value, (int, float)) else "N/A",
-        delta="-8.7%" if isinstance(rmse_value, (int, float)) else None,
-        delta_color="inverse"
-    )
+    if rmse_value > 0:
+        if rmse_delta is not None:
+            st.metric(
+                "RMSE (Root Mean Squared Error)", 
+                f"{rmse_value:.2f}",
+                delta=f"{rmse_delta:+.1f}%",
+                delta_color="inverse",  # For RMSE, lower is better
+                help="Lower is better. Penalizes large errors."
+            )
+        else:
+            st.metric(
+                "RMSE", 
+                f"{rmse_value:.2f}",
+                help="Lower is better. Penalizes large errors."
+            )
+    else:
+        st.metric(
+            "RMSE", 
+            "N/A",
+            help="Train a model to see metrics"
+        )
 
 with col3:
-    r2_value = model_perf.get('r2_score', 0)
-    st.metric(
-        "R² Score", 
-        f"{r2_value:.2f}" if isinstance(r2_value, (int, float)) else "N/A",
-        delta="+2.3%" if isinstance(r2_value, (int, float)) else None
-    )
+    if r2_value > 0:
+        if r2_delta is not None:
+            st.metric(
+                "R² Score", 
+                f"{r2_value:.3f}",
+                delta=f"{r2_delta:+.1f}%",
+                delta_color="normal",  # For R², higher is better
+                help="Higher is better. Proportion of variance explained (0-1)."
+            )
+        else:
+            st.metric(
+                "R² Score", 
+                f"{r2_value:.3f}",
+                help="Higher is better. Proportion of variance explained (0-1)."
+            )
+    else:
+        st.metric(
+            "R² Score", 
+            "N/A",
+            help="Train a model to see metrics"
+        )
+
+# Show comparison details in expander
+if mae_delta is not None:
+    with st.expander("📊 View Detailed Comparison"):
+        try:
+            comparison_response = requests.get(f"{API_URL}/model/compare", timeout=5)
+            if comparison_response.status_code == 200:
+                comparison = comparison_response.json()
+                
+                current = comparison.get("current_version", {})
+                previous = comparison.get("previous_version", {})
+                
+                st.markdown("### Current vs Previous Version")
+                
+                comparison_df = pd.DataFrame({
+                    'Metric': ['MAE', 'RMSE', 'R² Score'],
+                    'Current (v{})'.format(current.get("version", "?")): [
+                        f"{current.get('metrics', {}).get('mae', 0):.2f}",
+                        f"{current.get('metrics', {}).get('rmse', 0):.2f}",
+                        f"{current.get('metrics', {}).get('r2_score', 0):.3f}"
+                    ],
+                    'Previous (v{})'.format(previous.get("version", "?")): [
+                        f"{previous.get('metrics', {}).get('mae', 0):.2f}",
+                        f"{previous.get('metrics', {}).get('rmse', 0):.2f}",
+                        f"{previous.get('metrics', {}).get('r2_score', 0):.3f}"
+                    ],
+                    'Change': [
+                        f"{mae_delta:+.1f}%",
+                        f"{rmse_delta:+.1f}%",
+                        f"{r2_delta:+.1f}%"
+                    ]
+                })
+                
+                st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+        except:
+            st.info("Comparison data not available")
 
 st.markdown("---")
 
@@ -231,14 +369,14 @@ with st.expander("📋 View Forecast Data"):
         'Lower Bound': [f"${l:.2f}" for l in lower_bound],
         'Upper Bound': [f"${u:.2f}" for u in upper_bound]
     })
-    st.dataframe(forecast_df, use_container_width=True)
+    st.dataframe(forecast_df, use_container_width=True, hide_index=True)
 
 st.markdown("---")
 
 # Interactive Prediction Section
 st.subheader("🔮 Make a Custom Prediction")
 
-st.markdown("Enter values below to get a sales prediction:")
+st.markdown("Enter values below to get a sales prediction from the production model:")
 
 col1, col2 = st.columns(2)
 
@@ -324,7 +462,7 @@ if st.button("🚀 Get Prediction", type="primary", use_container_width=True):
                 st.metric(
                     "Model Version",
                     result['model_version'],
-                    help="Model version used"
+                    help="Model version used for prediction"
                 )
             
             # Additional info
@@ -352,16 +490,17 @@ recent_predictions = pd.DataFrame({
     ],
     'Prediction': [f"${p:.2f}" for p in np.random.uniform(100, 180, 5)],
     'Confidence': [f"{c:.1%}" for c in np.random.uniform(0.75, 0.95, 5)],
+    'Model': [model_version_display] * 5,
     'Status': ['✅ Served'] * 5
 })
 
-st.dataframe(recent_predictions, use_container_width=True)
+st.dataframe(recent_predictions, use_container_width=True, hide_index=True)
 
 # Footer
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #666; padding: 20px;'>
-    <p><b>Sales Forecaster Dashboard</b> | Powered by Streamlit, FastAPI & MLflow</p>
+    <p><b>Sales Forecaster Dashboard v4.0</b> | Powered by Streamlit, FastAPI & MLflow</p>
     <p>MLOps with Agentic AI - Advanced Certification Course</p>
 </div>
 """, unsafe_allow_html=True)
