@@ -105,6 +105,10 @@ mlartifacts/
 mlflow.db
 mlflow_data/
 
+# MLflow run tracking (temporary)
+models/trained/run_id.txt
+models/**/run_id.txt
+
 # DVC - Data files tracked by DVC (not in Git!)
 # DVC creates .dvc files that ARE tracked
 /data/raw/*.csv

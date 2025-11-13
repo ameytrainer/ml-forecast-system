@@ -74,11 +74,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🔧 Initialize DVC
-        run: |
-          dvc init --no-scm
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
+      # - name: 🔧 Initialize DVC
+      #   run: |
+      #     dvc init --no-scm
+      #     git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      #     git config --global user.name "github-actions[bot]"
       
       - name: 🔧 Configure DVC
         env:
@@ -144,11 +144,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🔧 Initialize DVC
-        run: |
-          dvc init --no-scm
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"          
+      # - name: 🔧 Initialize DVC
+      #   run: |
+      #     dvc init --no-scm
+      #     git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      #     git config --global user.name "github-actions[bot]"          
       
       - name: 🔧 Configure DVC
         env:
@@ -251,11 +251,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🔧 Initialize DVC
-        run: |
-          dvc init --no-scm
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"          
+      # - name: 🔧 Initialize DVC
+      #   run: |
+      #     dvc init --no-scm
+      #     git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      #     git config --global user.name "github-actions[bot]"          
       
       - name: 🔧 Configure DVC
         env:
