@@ -516,5 +516,6 @@ This project is for educational purposes.
 ---
 
 **Version:** 1.0  
-**Last Updated:** November 2024  
+**Last Updated:** November 2025
+**Author:** Amey Talkatkar
 **Course:** MLOps with Agentic AI
