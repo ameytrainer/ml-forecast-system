@@ -1,332 +1,520 @@
-# 📊 Sales Forecaster - Production ML System
+# 🚀 Sales Forecaster - Production MLOps Pipeline
 
-Complete end-to-end MLOps pipeline with DVC, MLflow, and GitHub Actions CI/CD.
+**Complete End-to-End Automated ML System with CI/CD**
 
-## 🎯 Overview
+[![MLOps](https://img.shields.io/badge/MLOps-Production-green)](https://github.com/yourusername/ml-forecast-system)
+[![Python](https://img.shields.io/badge/Python-3.10-blue)](https://www.python.org/)
+[![MLflow](https://img.shields.io/badge/MLflow-2.8.0-orange)](https://mlflow.org/)
+[![DVC](https://img.shields.io/badge/DVC-3.27.0-blueviolet)](https://dvc.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104.0-teal)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.28.0-red)](https://streamlit.io/)
 
-This is a production-grade ML system that demonstrates:
-- ✅ Automated ML pipeline with 8 stages
-- ✅ DVC for dataset versioning
-- ✅ MLflow for experiment tracking & model registry
-- ✅ GitHub Actions for CI/CD automation
-- ✅ Multi-environment deployment (Dev/Staging/Prod)
-- ✅ Complete traceability (Git + DVC + MLflow)
-- ✅ Production dashboard with live predictions
-- ✅ Monitoring, alerting & rollback procedures
+---
 
-## 🚀 Quick Start
+## 📋 What is This?
 
-### Prerequisites
-- Python 3.10+
-- Git
-- (Optional) GitHub account for CI/CD
+This is a **production-grade MLOps pipeline** that demonstrates industry best practices for:
 
-### 1. Clone and Setup
+- ✅ **Automated ML Training** - Train models with one git push
+- ✅ **Model Versioning** - MLflow Model Registry integration
+- ✅ **Data Versioning** - DVC for reproducible datasets
+- ✅ **CI/CD Automation** - GitHub Actions pipeline
+- ✅ **Real-time Serving** - FastAPI backend with auto-reload
+- ✅ **Interactive Dashboard** - Streamlit UI with live metrics
+- ✅ **Experiment Tracking** - DagsHub integration
+
+**Perfect for:**
+- MLOps courses and training
+- Portfolio projects
+- Learning production ML workflows
+- Interview preparation
+
+---
+
+## 🎯 Learning Path
+
+### **Step 1: Learn Concepts (30 minutes)**
+📓 **Start here:** [`Session_8_MLOps_Pipeline_Foundation.ipynb`](Session_8_MLOps_Pipeline_Foundation.ipynb)
+
+This Jupyter notebook teaches you:
+- Why MLOps matters (real production disasters!)
+- Core concepts: CI/CD, Model Registry, Data Versioning
+- Hands-on exercises with explanations
+- Smooth transition to the full implementation
+
+**Run the notebook first to understand WHAT and WHY before building.**
+
+---
+
+### **Step 2: Build the System (60-90 minutes)**
+📄 **Implementation guide:** [`MLOps_Complete_Setup_Guide.md`](MLOps_Complete_Setup_Guide.md)
+
+Complete step-by-step instructions for:
+- Windows & macOS
+- Anaconda Prompt or VS Code
+- GitHub, DagsHub, and local setup
+- Troubleshooting common issues
+
+**Follow this guide to build your production pipeline.**
+
+---
+
+## ⚡ Quick Start (For Experienced Users)
+
+If you're already familiar with MLOps concepts:
 
 ```bash
-# Clone the repository
-git clone <your-repo-url>
+# 1. Clone and setup
+git clone https://github.com/YOUR_USERNAME/ml-forecast-system.git
 cd ml-forecast-system
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
+# 2. Create environment
+conda create -n mlops python=3.10 -y
+conda activate mlops
 pip install -r requirements.txt
-```
 
-### 2. Initialize DVC
+# 3. Configure credentials
+cp .env.example .env
+# Edit .env with your DagsHub credentials
 
-```bash
-# Initialize DVC
+# 4. Initialize DVC
 dvc init
+dvc remote add origin https://dagshub.com/YOUR_USERNAME/ml-forecast-system.dvc
 
-# Configure local remote storage (for demo)
-mkdir -p /tmp/dvc-storage
-dvc remote add -d localstorage /tmp/dvc-storage
-
-# For production, use cloud storage:
-# dvc remote add -d production s3://your-bucket/dvc-store
-```
-
-### 3. Generate Sample Data
-
-```bash
-# Generate synthetic sales data
-python scripts/generate_data.py
-
-# Track data with DVC
-dvc add data/raw/sales_data.csv
-git add data/raw/sales_data.csv.dvc data/raw/.gitignore
-git commit -m "Track training data with DVC"
-
-# Push data to DVC remote
-dvc push
-```
-
-### 4. Preprocess Data
-
-```bash
+# 5. Generate data and train
+python scripts/generate_data.py --n-days 1065
 python src/preprocess.py
-```
-
-### 5. Train Model
-
-```bash
-# Train model with MLflow tracking
 python src/train.py
 
-# View experiments in MLflow UI
-mlflow ui --port 5001
-# Open: http://localhost:5001
-```
+# 6. Start services
+# Terminal 1:
+uvicorn app.backend:app --reload --port 5000
 
-### 6. Start Services
-
-Open 3 terminal windows:
-
-**Terminal 1: FastAPI Backend**
-```bash
-cd app
-uvicorn backend:app --reload --port 5000
-```
-
-**Terminal 2: Streamlit Dashboard**
-```bash
+# Terminal 2:
 streamlit run app/dashboard.py
+
+# 7. Make changes and watch automation!
+# Edit params.yaml, commit, push → Full CI/CD runs automatically
 ```
 
-**Terminal 3: MLflow UI**
-```bash
-mlflow ui --port 5001
-```
-
-### 7. Access Applications
-
-- 📊 **Dashboard**: http://localhost:8501
-- 🔌 **API Docs**: http://localhost:5000/docs
-- 📈 **MLflow UI**: http://localhost:5001
-
-## 🔄 CI/CD Pipeline
-
-### GitHub Actions Setup
-
-1. **Add GitHub Secrets**:
-   Go to Repository Settings → Secrets → Actions and add:
-   ```
-   MLFLOW_TRACKING_URI: https://your-mlflow-server.com
-   MLFLOW_USERNAME: your-username
-   MLFLOW_PASSWORD: your-password
-   DVC_REMOTE_URL: s3://your-bucket/dvc-store
-   AWS_ACCESS_KEY_ID: your-aws-key
-   AWS_SECRET_ACCESS_KEY: your-aws-secret
-   SLACK_WEBHOOK: https://hooks.slack.com/services/YOUR/WEBHOOK
-   ```
-
-2. **Trigger Pipeline**:
-   ```bash
-   # Make a change
-   vim params.yaml  # Change max_depth: 10 → 15
-   
-   # Commit and push
-   git add params.yaml
-   git commit -m "Tune model: increase max_depth to 15"
-   git push origin main
-   
-   # Pipeline automatically triggers!
-   ```
-
-3. **Monitor Pipeline**:
-   - Go to GitHub repository → Actions tab
-   - Watch pipeline execute in real-time
-   - Approve production deployment when ready
-
-### Pipeline Stages
-
-```
-1. ✅ Code Quality (2 min)
-   ├── Linting (flake8, black)
-   └── Unit tests (pytest)
-
-2. ✅ Data Validation (3 min)
-   ├── DVC data pull
-   ├── Schema validation
-   └── Quality checks
-
-3. ✅ Model Training (5-10 min)
-   ├── Load data
-   ├── Train model
-   └── Log to MLflow
-
-4. ✅ Model Evaluation (2 min)
-   ├── Compare with baseline
-   └── Decision: promote or reject
-
-5. ✅ Model Registration (1 min)
-   └── Register in MLflow Registry
-
-6. ✅ Staging Deployment (3 min)
-   ├── Deploy to staging
-   └── Smoke tests
-
-7. ⏸️  Production Approval (Manual)
-   └── Reviewer approves deployment
-
-8. ✅ Production Deployment (5 min)
-   ├── Deploy to production
-   └── Health checks
-```
+---
 
 ## 📁 Project Structure
 
 ```
 ml-forecast-system/
-├── .github/
+│
+├── 📓 Session_8_MLOps_Pipeline_Foundation.ipynb   # Learning notebook
+├── 📄 MLOps_Complete_Setup_Guide.md               # Implementation guide
+│
+├── .github/                    # CI/CD Configuration
+│   ├── scripts/
+│   │   ├── register_model.py           # MLflow model registration
+│   │   └── validate_data.py            # Data quality checks
 │   └── workflows/
-│       └── ml-pipeline.yml      # GitHub Actions CI/CD
-├── app/
-│   ├── backend.py               # FastAPI backend
-│   └── dashboard.py             # Streamlit dashboard
-├── src/
-│   ├── __init__.py
-│   ├── preprocess.py            # Data preprocessing
-│   ├── train.py                 # Model training
-│   ├── evaluate.py              # Model evaluation
-│   └── utils.py                 # Helper functions
-├── scripts/
-│   ├── generate_data.py         # Generate sample data
-│   ├── rollback.py              # Rollback procedures
-│   └── check_metrics.py         # Monitoring script
-├── tests/
-│   ├── test_data.py             # Data validation tests
-│   ├── test_model.py            # Model tests
-│   └── test_api.py              # API tests
-├── data/
-│   ├── raw/                     # Raw data (DVC tracked)
-│   └── processed/               # Processed data
-├── models/
-│   ├── baseline/                # Baseline models
-│   └── trained/                 # Trained models
-├── dvc.yaml                     # DVC pipeline definition
-├── params.yaml                  # Hyperparameters
-├── requirements.txt             # Python dependencies
-├── .dvcignore                   # DVC ignore patterns
-├── .gitignore                   # Git ignore patterns
-└── README.md                    # This file
+│       └── ml-pipeline.yml             # GitHub Actions workflow
+│
+├── app/                        # Production Applications
+│   ├── backend.py                      # FastAPI REST API (auto-reload)
+│   └── dashboard.py                    # Streamlit dashboard (real-time metrics)
+│
+├── data/                       # Data Storage (DVC tracked)
+│   ├── raw/                            # Original datasets
+│   └── processed/                      # Train/test splits
+│
+├── models/                     # Model Artifacts
+│   └── trained/                        # Trained models
+│
+├── src/                        # ML Pipeline Code
+│   ├── preprocess.py                   # Data preprocessing
+│   ├── train.py                        # Model training (MLflow)
+│   ├── evaluate.py                     # Model evaluation
+│   └── utils.py                        # Helper functions
+│
+├── scripts/                    # Utility Scripts
+│   └── generate_data.py                # Synthetic data generation
+│
+├── tests/                      # Unit Tests
+│   ├── test_preprocess.py
+│   ├── test_train.py
+│   └── test_utils.py
+│
+├── .env.example                # Template for credentials
+├── .gitignore                  # Git ignore rules
+├── dvc.yaml                    # DVC pipeline definition
+├── params.yaml                 # Model hyperparameters
+├── requirements.txt            # Python dependencies
+└── README.md                   # This file
 ```
+
+---
+
+## 🛠️ Tech Stack
+
+### **ML & Data**
+- **Scikit-learn** - Model training (RandomForest)
+- **Pandas & NumPy** - Data manipulation
+- **MLflow** - Experiment tracking & model registry
+- **DVC** - Data version control
+
+### **Backend & API**
+- **FastAPI** - REST API with auto-reload
+- **Uvicorn** - ASGI server
+- **Python-dotenv** - Environment management
+
+### **Frontend & Visualization**
+- **Streamlit** - Interactive dashboard
+- **Plotly** - Charts and visualizations
+
+### **DevOps & CI/CD**
+- **GitHub Actions** - CI/CD pipeline
+- **DagsHub** - MLflow & DVC hosting
+- **pytest** - Unit testing
+- **flake8 & black** - Code quality
+
+---
+
+## 🎓 What You'll Learn
+
+### **MLOps Fundamentals**
+- Experiment tracking and reproducibility
+- Model versioning and registry
+- Data versioning with DVC
+- CI/CD for machine learning
+
+### **Production Patterns**
+- Automated model training pipelines
+- Model serving with REST APIs
+- Real-time dashboards
+- Auto-reload and hot-swapping models
+
+### **DevOps Practices**
+- Infrastructure as Code
+- Automated testing
+- GitHub Actions workflows
+- Secrets management
+
+### **Tools Mastery**
+- MLflow for experiment tracking
+- DVC for data versioning
+- FastAPI for model serving
+- Streamlit for dashboards
+
+---
+
+## 🚀 How It Works
+
+### **The Complete Automation Flow:**
+
+```
+1. Developer changes code (e.g., hyperparameters)
+   ↓
+2. Git push to GitHub
+   ↓
+3. GitHub Actions automatically triggers
+   ↓
+4. Pipeline runs (6 automated jobs):
+   - Code quality checks
+   - Data validation
+   - Model training
+   - Model evaluation
+   - Model registration in MLflow
+   - Deployment complete
+   ↓
+5. Model registered in DagsHub MLflow Registry
+   ↓
+6. Backend detects new model (30s polling)
+   ↓
+7. Backend auto-reloads new model
+   ↓
+8. Dashboard auto-refreshes (30s polling)
+   ↓
+9. New predictions served automatically!
+```
+
+**Total time:** ~15-20 minutes from push to production
+
+**Manual steps:** ZERO! ✨
+
+---
+
+## 📊 Live Applications
+
+Once deployed, you'll have:
+
+### **1. REST API (FastAPI)**
+- **URL:** http://localhost:5000
+- **Docs:** http://localhost:5000/docs
+- **Features:**
+  - `/predict` - Make predictions
+  - `/model/info` - Get model metadata
+  - `/model/compare` - Compare versions
+  - Auto-reload when new models deploy
+
+### **2. Dashboard (Streamlit)**
+- **URL:** http://localhost:8501
+- **Features:**
+  - Real-time model metrics
+  - 7-day sales forecasts
+  - Custom predictions
+  - Model version tracking
+  - Auto-refresh every 30s
+
+---
+
+## 🎯 Use Cases
+
+This system demonstrates:
+
+1. **Sales Forecasting** (Current Implementation)
+   - Predict daily sales based on advertising, promotions, seasonality
+   - Track model performance over time
+   - A/B test different models
+
+2. **Easily Adaptable To:**
+   - Demand forecasting
+   - Customer churn prediction
+   - Price optimization
+   - Fraud detection
+   - Any supervised learning problem
+
+---
 
 ## 🔧 Configuration
 
-### Hyperparameters (params.yaml)
+### **Environment Variables (.env)**
+
+```bash
+# DagsHub credentials
+DAGSHUB_USERNAME=your-username
+DAGSHUB_TOKEN=ghp_your_token
+DAGSHUB_REPO=ml-forecast-system
+
+# MLflow (auto-configured from DagsHub)
+MLFLOW_TRACKING_URI=https://dagshub.com/your-username/ml-forecast-system.mlflow
+MLFLOW_TRACKING_USERNAME=your-username
+MLFLOW_TRACKING_PASSWORD=ghp_your_token
+
+# Auto-reload settings
+AUTO_RELOAD_MODEL=true
+AUTO_RELOAD_INTERVAL=30
+```
+
+### **Model Hyperparameters (params.yaml)**
 
 ```yaml
-preprocess:
-  test_size: 0.2
-  random_state: 42
-
 train:
   model_type: RandomForestRegressor
   n_estimators: 100
   max_depth: 10
   min_samples_split: 2
   random_state: 42
+
+preprocess:
+  test_size: 0.2
+  random_state: 42
 ```
-
-### DVC Pipeline (dvc.yaml)
-
-The DVC pipeline defines the complete ML workflow:
-1. Preprocess data
-2. Train model
-3. Evaluate model
-
-Run entire pipeline: `dvc repro`
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-pytest tests/ -v
-
-# Run specific test file
-pytest tests/test_model.py -v
-
-# Run with coverage
-pytest tests/ --cov=src --cov-report=html
-```
-
-## 📊 Model Performance
-
-Current production model:
-- **MAE**: 4.92
-- **RMSE**: 7.01
-- **R² Score**: 0.89
-
-## 🔄 Data Versioning with DVC
-
-```bash
-# Add new data version
-dvc add data/raw/sales_data.csv
-git commit -m "Update dataset v2"
-dvc push
-
-# Switch to previous version
-git checkout HEAD~1 data/raw/sales_data.csv.dvc
-dvc checkout
-
-# View DVC pipeline
-dvc dag
-```
-
-## 🏥 Monitoring & Maintenance
-
-### Health Checks
-
-```bash
-# Check API health
-curl http://localhost:5000/health
-
-# Get metrics
-curl http://localhost:5000/metrics
-```
-
-### Rollback Procedure
-
-```bash
-# Emergency rollback to previous version
-python scripts/rollback.py --model sales-forecaster --version 2 --confirm
-```
-
-## 📚 Documentation
-
-- **Architecture**: See `docs/architecture.md`
-- **API Reference**: http://localhost:5000/docs
-- **Model Card**: See `docs/model_card.md`
-
-## 🤝 Contributing
-
-1. Create feature branch: `git checkout -b feature/my-feature`
-2. Make changes and test: `pytest tests/`
-3. Commit: `git commit -m "Add feature"`
-4. Push: `git push origin feature/my-feature`
-5. Create Pull Request
-
-## 📝 License
-
-MIT License - See LICENSE file for details
-
-## 🙋 Support
-
-For questions or issues:
-- Open an issue on GitHub
-- Contact: ml-team@company.com
-
-## 🎓 Learning Resources
-
-This project demonstrates concepts from:
-- **MLOps with Agentic AI** (Advanced Certification Course)
-- **Session 8**: End-to-End CI/CD for ML with DVC
 
 ---
 
-**Built with**: Python • MLflow • DVC • FastAPI • Streamlit • GitHub Actions
+## 🧪 Running Tests
+
+```bash
+# Activate environment
+conda activate mlops
+
+# Run all tests
+pytest tests/ -v
+
+# Run with coverage
+pytest tests/ -v --cov=src --cov-report=term
+
+# Run specific test file
+pytest tests/test_train.py -v
+
+# Run code quality checks
+flake8 src/ tests/ --max-line-length=100
+black --check src/ tests/
+```
+
+---
+
+## 📈 Experiment Tracking
+
+All experiments are tracked in DagsHub:
+
+**View Experiments:**
+https://dagshub.com/YOUR_USERNAME/ml-forecast-system/experiments
+
+**What's Tracked:**
+- Model hyperparameters
+- Training metrics (MAE, RMSE, R²)
+- Git commit hash
+- Training duration
+- Dataset version (DVC hash)
+
+**Model Registry:**
+https://dagshub.com/YOUR_USERNAME/ml-forecast-system.mlflow/#/models
+
+**What's Stored:**
+- Model versions
+- Stage (Production/Staging/Archived)
+- Performance metrics
+- Source run ID
+
+---
+
+## 🎨 Customization
+
+### **Change the Model**
+
+Edit `src/train.py`:
+```python
+# Current: RandomForest
+from sklearn.ensemble import RandomForestRegressor
+
+# Try: XGBoost
+from xgboost import XGBRegressor
+
+model = XGBRegressor(**params)
+```
+
+### **Add Features**
+
+Edit `src/preprocess.py`:
+```python
+# Add moving average
+df['sales_ma_7'] = df['sales'].rolling(7).mean()
+
+# Add holiday indicator
+df['is_holiday'] = df['date'].isin(holidays)
+```
+
+### **Change CI/CD Behavior**
+
+Edit `.github/workflows/ml-pipeline.yml`:
+```yaml
+# Add deployment approval
+- name: Wait for approval
+  uses: trstringer/manual-approval@v1
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### **Common Issues:**
+
+1. **Backend can't connect to MLflow**
+   - Check `.env` file exists and has correct credentials
+   - Verify `MLFLOW_TRACKING_URI` format
+   - Restart backend
+
+2. **Dashboard shows "Local File"**
+   - Wait 30s for auto-reload
+   - Manually reload: http://localhost:5000/model/reload
+   - Check model registered in DagsHub
+
+3. **CI/CD fails**
+   - Check GitHub Secrets are configured
+   - Verify DagsHub token is valid
+   - Review workflow logs
+
+**Full troubleshooting guide:** See [`MLOps_Complete_Setup_Guide.md`](MLOps_Complete_Setup_Guide.md#troubleshooting)
+
+---
+
+## 📚 Additional Resources
+
+### **Documentation**
+- **MLflow:** https://mlflow.org/docs/latest/
+- **DVC:** https://dvc.org/doc
+- **FastAPI:** https://fastapi.tiangolo.com/
+- **Streamlit:** https://docs.streamlit.io/
+
+### **Learning Resources**
+- **MLOps Community:** https://mlops.community/
+- **Made With ML:** https://madewithml.com/
+- **Full Stack Deep Learning:** https://fullstackdeeplearning.com/
+
+### **Similar Projects**
+- **MLOps Zoomcamp:** https://github.com/DataTalksClub/mlops-zoomcamp
+- **Awesome MLOps:** https://github.com/visenger/awesome-mlops
+
+---
+
+## 🤝 Contributing
+
+This is a course project template. Feel free to:
+- Fork and customize for your needs
+- Add new features
+- Improve documentation
+- Share with others
+
+---
+
+## 📄 License
+
+This project is for educational purposes.
+
+---
+
+## 🙏 Acknowledgments
+
+**Course:** MLOps with Agentic AI - Advanced Certification Course
+
+**Tools:**
+- Anthropic MLflow for experiment tracking
+- DagsHub for MLflow & DVC hosting
+- GitHub Actions for CI/CD
+- FastAPI & Streamlit for applications
+
+---
+
+## 📞 Support
+
+**Having issues?**
+1. Check the [Setup Guide](MLOps_Complete_Setup_Guide.md)
+2. Review the [Troubleshooting Section](MLOps_Complete_Setup_Guide.md#troubleshooting)
+3. Run the [Concepts Notebook](Session_8_MLOps_Pipeline_Foundation.ipynb)
+4. Contact course instructors
+
+---
+
+## 🎯 Next Steps
+
+**After completing this project:**
+
+1. **Enhance the Pipeline**
+   - Add model monitoring (Prometheus + Grafana)
+   - Implement A/B testing
+   - Add data drift detection
+
+2. **Scale Up**
+   - Deploy to Kubernetes
+   - Use cloud services (AWS SageMaker, GCP Vertex AI)
+   - Add distributed training
+
+3. **Apply to Real Projects**
+   - Use your own dataset
+   - Solve real business problems
+   - Build your portfolio
+
+4. **Learn Advanced Topics**
+   - LLMOps (Module 4 of course)
+   - Agentic AI systems
+   - Multi-model serving
+
+---
+
+**⭐ Star this repo if you found it helpful!**
+
+**📢 Share your implementation on LinkedIn with #MLOps**
+
+**🚀 Keep learning, keep building!**
+
+---
+
+**Version:** 1.0  
+**Last Updated:** November 2024  
+**Course:** MLOps with Agentic AI
