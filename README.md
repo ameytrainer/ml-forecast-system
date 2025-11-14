@@ -2,7 +2,7 @@
 
 **Complete End-to-End Automated ML System with CI/CD**
 
-[![MLOps](https://img.shields.io/badge/MLOps-Production-green)](https://github.com/yourusername/ml-forecast-system)
+[![MLOps](https://img.shields.io/badge/MLOps-Production-green)](https://github.com/ameytrainer/ml-forecast-system)
 [![Python](https://img.shields.io/badge/Python-3.10-blue)](https://www.python.org/)
 [![MLflow](https://img.shields.io/badge/MLflow-2.8.0-orange)](https://mlflow.org/)
 [![DVC](https://img.shields.io/badge/DVC-3.27.0-blueviolet)](https://dvc.org/)
